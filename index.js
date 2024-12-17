@@ -3,7 +3,9 @@ const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const admin = require('firebase-admin');
 const tf = require('@tensorflow/tfjs-node');
+const { Storage } = require('@google-cloud/storage'); // Import Google Cloud Storage
 const path = require('path');
+const fs = require('fs');
 
 // Setup Firebase Admin SDK tanpa menggunakan key.json
 admin.initializeApp({
@@ -17,12 +19,37 @@ const upload = multer({
   limits: { fileSize: 1000000 }, // Maksimal 1MB
 }).single('image'); // Menggunakan field 'image' pada form-data
 
-// Load model lokal dari folder './model/model.json'
+// Setup Google Cloud Storage
+const storage = new Storage();
+const bucketName = 'bucket-mlgc-mita'; // Ganti dengan nama bucket Anda
+const modelFileName = 'model.json'; // Ganti dengan path model di bucket Anda
+
+// Fungsi untuk mengunduh model dari bucket
+async function downloadModelFromBucket() {
+  const tempModelPath = 'model.json'; // Path sementara untuk model yang diunduh
+  const options = {
+    destination: tempModelPath, // Tempat penyimpanan model yang diunduh
+  };
+
+  try {
+    // Mengunduh model dari bucket
+    await storage.bucket(bucketName).file(modelFileName).download(options);
+    console.log('Model downloaded successfully from bucket.');
+  } catch (error) {
+    console.error('Failed to download model from bucket:', error);
+    throw error;
+  }
+}
+
+// Load model dari file lokal
 let model;
 (async () => {
   try {
-    // Model akan dimuat dari file lokal
-    model = await tf.loadGraphModel('file://./model/model.json'); // Ganti dengan path ke model lokal
+    // Unduh model dari bucket sebelum memuatnya
+    await downloadModelFromBucket();
+
+    // Model akan dimuat setelah diunduh
+    model = await tf.loadGraphModel('file://./model/model.json');
     console.log('Model loaded successfully');
   } catch (error) {
     console.error('Failed to load model:', error);
@@ -89,7 +116,6 @@ app.post('/predict', upload, async (req, res) => {
 
 // Menjalankan server di port 8080
 const PORT = process.env.PORT || 8080;
-app.listen(port, '0.0.0.0', async () => {
-    await loadModel();
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
