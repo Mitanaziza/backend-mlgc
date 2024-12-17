@@ -89,6 +89,7 @@ app.post('/predict', upload, async (req, res) => {
 
 // Menjalankan server di port 8080
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(port, '0.0.0.0', async () => {
+    await loadModel();
+    console.log(`Server running on http://localhost:${PORT}`);
 });
